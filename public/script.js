@@ -1,38 +1,58 @@
+let myChartInstance = null;
+
 async function fetchData() {
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    const field = document.getElementById('field').value;
+    const field = document.getElementById("field").value;
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
 
-    const response = await fetch(`/api/measurements?start_date=${startDate}&end_date=${endDate}&field=${field}`);
-    const data = await response.json();
+    console.log('Selected Field:', field);
+    console.log('Start Date:', startDate);
+    console.log('End Date:', endDate);
 
-    const timestamps = data.map(item => item.timestamp);
-    const values = data.map(item => item[field]);
+    try {
+        const response = await fetch(`http://localhost:3000/api/measurements?field=${field}&start_date=${startDate}&end_date=${endDate}`);
+        const data = await response.json();
 
-    const ctx = document.getElementById('myChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: timestamps,
-        datasets: [{
-          label: field.charAt(0).toUpperCase() + field.slice(1),
-          data: values,
-          borderColor: 'rgba(75, 192, 192, 1)',
-          fill: false,
-        }],
-      },
-      options: {
-        scales: {
-          x: { type: 'time', time: { unit: 'day' } },
-          y: { beginAtZero: true },
-        },
-      },
-    });
+        const labels = data.map(item => {
+            const date = new Date(item.Date);
+            if (isNaN(date)) {
+                console.error("Invalid Date format:", item);
+                return "Invalid Date";
+            }
+            return date.toISOString().split("T")[0];
+        });
+        console.log('Labels:', labels);
+        
+        const values = data.map(item => item[field]);
 
-    const metricsResponse = await fetch(`/api/measurements/metrics?field=${field}`);
-    const metrics = await metricsResponse.json();
-    document.getElementById('avg').innerText = metrics.avg;
-    document.getElementById('min').innerText = metrics.min;
-    document.getElementById('max').innerText = metrics.max;
-    document.getElementById('stdDev').innerText = metrics.stdDev;
-  }
+        if (myChartInstance) {
+            myChartInstance.destroy();
+        }
+
+        const ctx = document.getElementById("myChart").getContext("2d");
+
+        myChartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels,
+                datasets: [{
+                    label: field,
+                    data: values,
+                    borderColor: "blue",
+                    fill: false
+                }]
+            }
+        });
+
+        const metricsResponse = await fetch(`http://localhost:3000/api/measurements/metrics/?field=${field}`);
+        const metrics = await metricsResponse.json();
+
+        document.getElementById("avg").innerText = metrics.avg;
+        document.getElementById("min").innerText = metrics.min;
+        document.getElementById("max").innerText = metrics.max;
+        document.getElementById("stdDev").innerText = metrics.stdDev;
+        console.error(metrics.avg);
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
